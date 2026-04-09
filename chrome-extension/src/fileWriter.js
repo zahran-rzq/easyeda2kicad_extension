@@ -24,6 +24,14 @@ export async function writeTextFile(baseHandle, relativePath, text) {
   await writable.close();
 }
 
+export async function readTextFile(baseHandle, relativePath) {
+  const parts = relativePath.split("/").filter(Boolean);
+  const { dir, fileName } = await ensurePath(baseHandle, parts);
+  const fileHandle = await dir.getFileHandle(fileName);
+  const file = await fileHandle.getFile();
+  return file.text();
+}
+
 export async function writeBinaryFile(baseHandle, relativePath, bytes) {
   const parts = relativePath.split("/").filter(Boolean);
   const { dir, fileName } = await ensurePath(baseHandle, parts);

@@ -34,6 +34,16 @@ async function refreshFolderStatus() {
     : "No folder selected";
 }
 
+async function ensureWritePermission(folderHandle) {
+  const state = await folderHandle.queryPermission({ mode: "readwrite" });
+  if (state === "granted") {
+    return true;
+  }
+
+  const requested = await folderHandle.requestPermission({ mode: "readwrite" });
+  return requested === "granted";
+}
+
 async function runImport(partIds) {
   if (!partIds.length) {
     appendLog("No valid LCSC IDs found.");
@@ -51,6 +61,12 @@ async function runImport(partIds) {
   const folderHandle = await getDirectoryHandle();
   if (!folderHandle) {
     appendLog("Select an output folder first.");
+    return;
+  }
+
+  const writable = await ensureWritePermission(folderHandle);
+  if (!writable) {
+    appendLog("Folder write permission was not granted. Please allow access and try again.");
     return;
   }
 

@@ -7,10 +7,16 @@ import {
 import { getDirectoryHandle, getLibraryName } from "./storage.js";
 import {
   ensureKiCadLayout,
+  readTextFile,
   writeBinaryFile,
   writeTextFile,
 } from "./fileWriter.js";
-import { buildMinimalSymbolLib } from "./converters/symbol.js";
+import {
+  buildSymbolForLibrary,
+  createEmptySymbolLib,
+  readSymbolLibVersion,
+  upsertSymbolInLib,
+} from "./converters/symbol.js";
 import { buildMinimalFootprint } from "./converters/footprint.js";
 
 function toPartIds(input) {
@@ -28,10 +34,9 @@ async function assertWritableDirectory() {
 
   const permission = await dir.queryPermission({ mode: "readwrite" });
   if (permission !== "granted") {
-    const asked = await dir.requestPermission({ mode: "readwrite" });
-    if (asked !== "granted") {
-      throw new Error("Folder write permission was not granted.");
-    }
+    throw new Error(
+      "Folder write permission is missing. Open the extension popup and run import again to grant access."
+    );
   }
 
   return dir;
@@ -46,8 +51,24 @@ async function importPart(baseDir, partId, libraryName, options) {
   const symbolName = cad?.dataStr?.head?.c_para?.name || partId;
 
   if (options.symbol) {
-    const symbolLibText = buildMinimalSymbolLib(partId, cad, libraryName);
-    await writeTextFile(baseDir, layout.symbolFile, symbolLibText);
+    let currentLib = "";
+    try {
+      currentLib = await readTextFile(baseDir, layout.symbolFile);
+    } catch {
+      // File does not exist yet.
+    }
+
+    const symbolVersion = readSymbolLibVersion(currentLib);
+    const normalizedLib = currentLib || createEmptySymbolLib(symbolVersion);
+    const { symbolName: normalizedSymbolName, symbolBlock } = buildSymbolForLibrary(
+      partId,
+      cad,
+      libraryName,
+      symbolVersion
+    );
+
+    const mergedLib = upsertSymbolInLib(normalizedLib, normalizedSymbolName, symbolBlock);
+    await writeTextFile(baseDir, layout.symbolFile, mergedLib);
   }
 
   if (options.footprint) {
