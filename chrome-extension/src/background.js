@@ -1,8 +1,7 @@
 import {
   getComponentData,
-  get3dObj,
   get3dStep,
-  find3dModelUuid,
+  find3dModelInfo,
 } from "./easyedaClient.js";
 import { getDirectoryHandle, getLibraryName } from "./storage.js";
 import {
@@ -45,10 +44,11 @@ async function assertWritableDirectory() {
 async function importPart(baseDir, partId, libraryName, options) {
   const cad = await getComponentData(partId);
   const layout = await ensureKiCadLayout(baseDir, libraryName);
+  const outputFolderName = (baseDir?.name || "kicad_libs").replace(/\\/g, "/");
 
   await writeTextFile(baseDir, `_easyeda_raw/${partId}.json`, JSON.stringify(cad, null, 2));
 
-  const symbolName = cad?.dataStr?.head?.c_para?.name || partId;
+  const modelInfo = options.model3d ? find3dModelInfo(cad) : null;
 
   if (options.symbol) {
     let currentLib = "";
@@ -72,17 +72,25 @@ async function importPart(baseDir, partId, libraryName, options) {
   }
 
   if (options.footprint) {
-    const modelRef = `${libraryName}.3dshapes/${symbolName}.wrl`;
-    const fp = buildMinimalFootprint(partId, cad, libraryName, options.model3d ? modelRef : null);
+    const modelRef = modelInfo
+      ? {
+          file: `\${KIPRJMOD}/${outputFolderName}/${libraryName}.3dshapes/${modelInfo.name}.step`,
+          translation: modelInfo.translation,
+          rotation: {
+            x: (360 - modelInfo.rotation.x) % 360,
+            y: (360 - modelInfo.rotation.y) % 360,
+            z: (360 - modelInfo.rotation.z) % 360,
+          },
+        }
+      : null;
+    const fp = buildMinimalFootprint(partId, cad, libraryName, modelRef);
     await writeTextFile(baseDir, `${layout.prettyDir}/${fp.fpName}.kicad_mod`, fp.text);
   }
 
   if (options.model3d) {
-    const uuid = find3dModelUuid(cad);
-    if (uuid) {
-      const [objText, stepBinary] = await Promise.all([get3dObj(uuid), get3dStep(uuid)]);
-      await writeTextFile(baseDir, `${layout.shapesDir}/${symbolName}.obj`, objText);
-      await writeBinaryFile(baseDir, `${layout.shapesDir}/${symbolName}.step`, stepBinary);
+    if (modelInfo?.uuid) {
+      const stepBinary = await get3dStep(modelInfo.uuid);
+      await writeBinaryFile(baseDir, `${layout.shapesDir}/${modelInfo.name}.step`, stepBinary);
     }
   }
 }

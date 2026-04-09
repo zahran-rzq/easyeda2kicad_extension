@@ -699,8 +699,24 @@ export function buildMinimalFootprint(partId, cadData, libraryName, modelRef) {
   }
 
   if (modelRef) {
+    const modelFile = typeof modelRef === "string" ? modelRef : modelRef.file;
+    const translation =
+      typeof modelRef === "string"
+        ? { x: 0, y: 0, z: 0 }
+        : modelRef.translation || { x: 0, y: 0, z: 0 };
+    const rotation =
+      typeof modelRef === "string"
+        ? { x: 0, y: 0, z: 0 }
+        : modelRef.rotation || { x: 0, y: 0, z: 0 };
+
     lines.push(
-      `\t(model "${modelRef}"\n\t\t(offset (xyz 0.000 0.000 0.000))\n\t\t(scale (xyz 1 1 1))\n\t\t(rotate (xyz 0 0 0))\n\t)\n`
+      `\t(model "${modelFile}"\n\t\t(offset (xyz ${toFixed(translation.x, 3)} ${toFixed(translation.y, 3)} ${toFixed(
+        translation.z,
+        3
+      )}))\n\t\t(scale (xyz 1 1 1))\n\t\t(rotate (xyz ${toFixed(rotation.x, 0)} ${toFixed(rotation.y, 0)} ${toFixed(
+        rotation.z,
+        0
+      )}))\n\t)\n`
     );
   }
 
