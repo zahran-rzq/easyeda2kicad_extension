@@ -18,6 +18,8 @@ import {
 } from "./converters/symbol.js";
 import { buildMinimalFootprint } from "./converters/footprint.js";
 
+console.log("LCSC to KiCad background worker loaded v0.1.1");
+
 function toPartIds(input) {
   const values = Array.isArray(input) ? input : [];
   const merged = values.join(" ");
@@ -25,13 +27,17 @@ function toPartIds(input) {
   return [...new Set(matches.map((id) => id.toUpperCase()))];
 }
 
-async function assertWritableDirectory() {
+async function assertWritableDirectory({ allowRequestPermission = false } = {}) {
   const dir = await getDirectoryHandle();
   if (!dir) {
     throw new Error("No output folder selected. Open extension popup and browse folder.");
   }
 
-  const permission = await dir.queryPermission({ mode: "readwrite" });
+  let permission = await dir.queryPermission({ mode: "readwrite" });
+  if (permission !== "granted" && allowRequestPermission) {
+    permission = await dir.requestPermission({ mode: "readwrite" });
+  }
+
   if (permission !== "granted") {
     throw new Error(
       "Folder write permission is missing. Open the extension popup and run import again to grant access."
@@ -95,21 +101,23 @@ async function importPart(baseDir, partId, libraryName, options) {
   }
 }
 
-async function runImport(payload) {
-  const baseDir = await assertWritableDirectory();
-  const libraryName = (payload.libraryName || (await getLibraryName()) || "easyeda2kicad").trim();
+async function runImport(payload = {}, runtimeOptions = {}) {
+  const baseDir = await assertWritableDirectory({
+    allowRequestPermission: Boolean(runtimeOptions.allowRequestPermission),
+  });
+  const libraryName = (payload?.libraryName || (await getLibraryName()) || "easyeda2kicad").trim();
 
-  const options = {
-    symbol: Boolean(payload.options?.symbol),
-    footprint: Boolean(payload.options?.footprint),
-    model3d: Boolean(payload.options?.model3d),
+  const selectedAssets = {
+    symbol: Boolean(payload?.options?.symbol),
+    footprint: Boolean(payload?.options?.footprint),
+    model3d: Boolean(payload?.options?.model3d),
   };
 
-  if (!options.symbol && !options.footprint && !options.model3d) {
+  if (!selectedAssets.symbol && !selectedAssets.footprint && !selectedAssets.model3d) {
     throw new Error("No assets selected.");
   }
 
-  const partIds = toPartIds(payload.partIds || []);
+  const partIds = toPartIds(payload?.partIds || []);
   if (!partIds.length) {
     throw new Error("No valid LCSC IDs provided.");
   }
@@ -117,7 +125,7 @@ async function runImport(payload) {
   const results = [];
   for (const partId of partIds) {
     try {
-      await importPart(baseDir, partId, libraryName, options);
+      await importPart(baseDir, partId, libraryName, selectedAssets);
       results.push({ ok: true, partId });
     } catch (error) {
       results.push({ ok: false, partId, error: error.message || String(error) });
@@ -129,7 +137,7 @@ async function runImport(payload) {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "IMPORT_PARTS") {
-    runImport(message.payload)
+    runImport(message.payload, { allowRequestPermission: false })
       .then((results) => sendResponse({ ok: true, results }))
       .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
     return true;
@@ -139,7 +147,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     runImport({
       partIds: [message.payload?.partId],
       options: { symbol: true, footprint: true, model3d: true },
-    })
+    }, { allowRequestPermission: true })
       .then((results) => {
         const failed = results.find((entry) => !entry.ok);
         if (failed) {

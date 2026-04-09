@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LCSC to KiCad Downloader",
   "description": "Standalone browser extension to fetch LCSC/EasyEDA part data and save KiCad assets.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://www.lcsc.com/*",
