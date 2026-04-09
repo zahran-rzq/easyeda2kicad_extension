@@ -2,6 +2,10 @@
 
 This folder contains a standalone Chrome Manifest V3 extension that starts the browser-only import flow for LCSC/EasyEDA parts.
 
+## Screenshot
+
+![LCSC to KiCad extension popup on an LCSC product page](images/Screenshot1.png)
+
 ## Current implementation status
 
 Implemented now:
