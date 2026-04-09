@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LCSC to KiCad</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <h1>LCSC to KiCad</h1>
+
+      <section class="card">
+        <h2>Output Folder</h2>
+        <p id="folderStatus" class="muted">No folder selected</p>
+        <button id="pickFolderBtn" type="button">Browse Folder</button>
+      </section>
+
+      <section class="card">
+        <h2>Library Name</h2>
+        <input id="libraryName" type="text" value="easyeda2kicad" />
+      </section>
+
+      <section class="card">
+        <h2>Manual LCSC Parts</h2>
+        <textarea
+          id="partInput"
+          placeholder="C2040, C20197 or one per line"
+          rows="4"
+        ></textarea>
+        <div class="actions-row">
+          <button id="importManualBtn" type="button">Import IDs</button>
+          <button id="importCurrentBtn" type="button">Import Current Page</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Assets</h2>
+        <label><input id="optSymbol" type="checkbox" checked /> Symbol</label>
+        <label><input id="optFootprint" type="checkbox" checked /> Footprint</label>
+        <label><input id="opt3d" type="checkbox" checked /> 3D</label>
+      </section>
+
+      <section class="card">
+        <h2>Log</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

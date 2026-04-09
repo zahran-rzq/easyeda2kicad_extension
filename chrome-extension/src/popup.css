@@ -1,0 +1,91 @@
+:root {
+  color-scheme: light;
+  --bg: #f9fbfd;
+  --card: #ffffff;
+  --text: #152536;
+  --muted: #5d7287;
+  --border: #dbe5ef;
+  --accent: #095fb8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: radial-gradient(circle at top right, #e4f2ff 0%, var(--bg) 45%);
+  color: var(--text);
+}
+
+.app {
+  width: 360px;
+  padding: 12px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#log {
+  margin: 0;
+  min-height: 90px;
+  max-height: 170px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "LCSC to KiCad Downloader",
+  "description": "Standalone browser extension to fetch LCSC/EasyEDA part data and save KiCad assets.",
+  "version": "0.1.0",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://www.lcsc.com/*",
+    "https://easyeda.com/*",
+    "https://modules.easyeda.com/*",
+    "https://jlcpcb.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "LCSC to KiCad",
+    "default_popup": "src/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.lcsc.com/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
