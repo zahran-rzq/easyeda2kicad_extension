@@ -59,3 +59,21 @@ export async function getLibraryName() {
   const data = await chrome.storage.local.get("libraryName");
   return data.libraryName || "easyeda2kicad";
 }
+
+export async function saveExportStructure(structure) {
+  await chrome.storage.local.set({ exportStructure: structure });
+}
+
+export async function getExportStructure() {
+  const data = await chrome.storage.local.get("exportStructure");
+  return data.exportStructure || "current";
+}
+
+export async function saveSymbolFileMode(mode) {
+  await chrome.storage.local.set({ symbolFileMode: mode });
+}
+
+export async function getSymbolFileMode() {
+  const data = await chrome.storage.local.get("symbolFileMode");
+  return data.symbolFileMode || "shared";
+}

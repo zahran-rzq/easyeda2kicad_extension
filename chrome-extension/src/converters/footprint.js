@@ -500,7 +500,7 @@ export function buildMinimalFootprint(partId, cadData, libraryName, modelRef) {
   const description = String(cadData?.description || "").replace(/"/g, "'");
 
   const lines = [];
-  lines.push(`(module easyeda2kicad:${fpName} (layer F.Cu) (tedit 5DC5F6A4)\n`);
+  lines.push(`(module ${libraryName}:${fpName} (layer F.Cu) (tedit 5DC5F6A4)\n`);
   if (description) {
     lines.push(`\t(descr "${description}")\n`);
   }

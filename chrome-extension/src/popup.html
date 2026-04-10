@@ -42,6 +42,21 @@
       </section>
 
       <section class="card">
+        <h2>Settings</h2>
+        <label class="field-label" for="exportStructure">Export Structure</label>
+        <select id="exportStructure">
+          <option value="current">Current: &lt;library&gt;.kicad_sym + &lt;library&gt;.pretty + &lt;library&gt;.3dshapes</option>
+          <option value="split">Split: footprint/ + symbols/ + footprint/packages3d/</option>
+        </select>
+
+        <label class="field-label" for="symbolFileMode">Symbol File Mode</label>
+        <select id="symbolFileMode">
+          <option value="shared">Shared file (current behavior)</option>
+          <option value="perPart">One .kicad_sym file per part</option>
+        </select>
+      </section>
+
+      <section class="card">
         <h2>Log</h2>
         <pre id="log"></pre>
       </section>

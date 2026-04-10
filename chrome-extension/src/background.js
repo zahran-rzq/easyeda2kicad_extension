@@ -3,9 +3,13 @@ import {
   get3dStep,
   find3dModelInfo,
 } from "./easyedaClient.js";
-import { getDirectoryHandle, getLibraryName } from "./storage.js";
 import {
-  ensureKiCadLayout,
+  getDirectoryHandle,
+  getLibraryName,
+  getExportStructure,
+  getSymbolFileMode,
+} from "./storage.js";
+import {
   readTextFile,
   writeBinaryFile,
   writeTextFile,
@@ -19,6 +23,36 @@ import {
 import { buildMinimalFootprint } from "./converters/footprint.js";
 
 console.log("LCSC to KiCad background worker loaded v0.1.1");
+
+function sanitizeFileName(name, fallback = "part") {
+  const cleaned = String(name || "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_\-.]/g, "_");
+  return cleaned || fallback;
+}
+
+function getExportLayout(structure, libraryName) {
+  if (structure === "split") {
+    return {
+      symbolDir: "symbols",
+      symbolSharedFile: `symbols/${libraryName}.kicad_sym`,
+      footprintDir: "footprint",
+      modelDir: "footprint/packages3d",
+      footprintLibraryName: "footprint",
+      modelRefDir: "footprint/packages3d",
+    };
+  }
+
+  return {
+    symbolDir: "",
+    symbolSharedFile: `${libraryName}.kicad_sym`,
+    footprintDir: `${libraryName}.pretty`,
+    modelDir: `${libraryName}.3dshapes`,
+    footprintLibraryName: libraryName,
+    modelRefDir: `${libraryName}.3dshapes`,
+  };
+}
 
 function toPartIds(input) {
   const values = Array.isArray(input) ? input : [];
@@ -47,40 +81,60 @@ async function assertWritableDirectory({ allowRequestPermission = false } = {}) 
   return dir;
 }
 
-async function importPart(baseDir, partId, libraryName, options) {
+async function importPart(baseDir, partId, libraryName, options, settings) {
   const cad = await getComponentData(partId);
-  const layout = await ensureKiCadLayout(baseDir, libraryName);
   const outputFolderName = (baseDir?.name || "kicad_libs").replace(/\\/g, "/");
+  const exportStructure = settings.exportStructure === "split" ? "split" : "current";
+  const symbolFileMode = settings.symbolFileMode === "perPart" ? "perPart" : "shared";
+  const layout = getExportLayout(exportStructure, libraryName);
 
   await writeTextFile(baseDir, `_easyeda_raw/${partId}.json`, JSON.stringify(cad, null, 2));
 
   const modelInfo = options.model3d ? find3dModelInfo(cad) : null;
 
   if (options.symbol) {
-    let currentLib = "";
-    try {
-      currentLib = await readTextFile(baseDir, layout.symbolFile);
-    } catch {
-      // File does not exist yet.
+    if (symbolFileMode === "perPart") {
+      const symbolVersion = 20231120;
+      const { symbolName: normalizedSymbolName, symbolBlock } = buildSymbolForLibrary(
+        partId,
+        cad,
+        layout.footprintLibraryName,
+        symbolVersion
+      );
+      const symbolFilePath = layout.symbolDir
+        ? `${layout.symbolDir}/${sanitizeFileName(normalizedSymbolName, partId)}.kicad_sym`
+        : `${sanitizeFileName(normalizedSymbolName, partId)}.kicad_sym`;
+      const oneSymbolLib = upsertSymbolInLib(
+        createEmptySymbolLib(symbolVersion),
+        normalizedSymbolName,
+        symbolBlock
+      );
+      await writeTextFile(baseDir, symbolFilePath, oneSymbolLib);
+    } else {
+      let currentLib = "";
+      try {
+        currentLib = await readTextFile(baseDir, layout.symbolSharedFile);
+      } catch {
+        // File does not exist yet.
+      }
+
+      const currentVersion = readSymbolLibVersion(currentLib);
+      const normalizedLib = currentLib || createEmptySymbolLib(currentVersion);
+      const { symbolName: normalizedSymbolName, symbolBlock } = buildSymbolForLibrary(
+        partId,
+        cad,
+        layout.footprintLibraryName,
+        currentVersion
+      );
+      const mergedLib = upsertSymbolInLib(normalizedLib, normalizedSymbolName, symbolBlock);
+      await writeTextFile(baseDir, layout.symbolSharedFile, mergedLib);
     }
-
-    const symbolVersion = readSymbolLibVersion(currentLib);
-    const normalizedLib = currentLib || createEmptySymbolLib(symbolVersion);
-    const { symbolName: normalizedSymbolName, symbolBlock } = buildSymbolForLibrary(
-      partId,
-      cad,
-      libraryName,
-      symbolVersion
-    );
-
-    const mergedLib = upsertSymbolInLib(normalizedLib, normalizedSymbolName, symbolBlock);
-    await writeTextFile(baseDir, layout.symbolFile, mergedLib);
   }
 
   if (options.footprint) {
     const modelRef = modelInfo
       ? {
-          file: `\${KIPRJMOD}/${outputFolderName}/${libraryName}.3dshapes/${modelInfo.name}.step`,
+          file: `\${KIPRJMOD}/${outputFolderName}/${layout.modelRefDir}/${modelInfo.name}.step`,
           translation: modelInfo.translation,
           rotation: {
             x: (360 - modelInfo.rotation.x) % 360,
@@ -89,14 +143,14 @@ async function importPart(baseDir, partId, libraryName, options) {
           },
         }
       : null;
-    const fp = buildMinimalFootprint(partId, cad, libraryName, modelRef);
-    await writeTextFile(baseDir, `${layout.prettyDir}/${fp.fpName}.kicad_mod`, fp.text);
+    const fp = buildMinimalFootprint(partId, cad, layout.footprintLibraryName, modelRef);
+    await writeTextFile(baseDir, `${layout.footprintDir}/${fp.fpName}.kicad_mod`, fp.text);
   }
 
   if (options.model3d) {
     if (modelInfo?.uuid) {
       const stepBinary = await get3dStep(modelInfo.uuid);
-      await writeBinaryFile(baseDir, `${layout.shapesDir}/${modelInfo.name}.step`, stepBinary);
+      await writeBinaryFile(baseDir, `${layout.modelDir}/${modelInfo.name}.step`, stepBinary);
     }
   }
 }
@@ -106,6 +160,11 @@ async function runImport(payload = {}, runtimeOptions = {}) {
     allowRequestPermission: Boolean(runtimeOptions.allowRequestPermission),
   });
   const libraryName = (payload?.libraryName || (await getLibraryName()) || "easyeda2kicad").trim();
+  const settings = {
+    exportStructure:
+      payload?.settings?.exportStructure || (await getExportStructure()) || "current",
+    symbolFileMode: payload?.settings?.symbolFileMode || (await getSymbolFileMode()) || "shared",
+  };
 
   const selectedAssets = {
     symbol: Boolean(payload?.options?.symbol),
@@ -125,7 +184,7 @@ async function runImport(payload = {}, runtimeOptions = {}) {
   const results = [];
   for (const partId of partIds) {
     try {
-      await importPart(baseDir, partId, libraryName, selectedAssets);
+      await importPart(baseDir, partId, libraryName, selectedAssets, settings);
       results.push({ ok: true, partId });
     } catch (error) {
       results.push({ ok: false, partId, error: error.message || String(error) });

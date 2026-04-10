@@ -3,6 +3,10 @@ import {
   saveDirectoryHandle,
   getLibraryName,
   saveLibraryName,
+  getExportStructure,
+  saveExportStructure,
+  getSymbolFileMode,
+  saveSymbolFileMode,
 } from "./storage.js";
 
 const folderStatusEl = document.getElementById("folderStatus");
@@ -16,6 +20,8 @@ const logEl = document.getElementById("log");
 const optSymbolEl = document.getElementById("optSymbol");
 const optFootprintEl = document.getElementById("optFootprint");
 const opt3dEl = document.getElementById("opt3d");
+const exportStructureEl = document.getElementById("exportStructure");
+const symbolFileModeEl = document.getElementById("symbolFileMode");
 
 function appendLog(line) {
   logEl.textContent += `${line}\n`;
@@ -72,6 +78,10 @@ async function runImport(partIds) {
 
   const libraryName = (libraryNameEl.value || "easyeda2kicad").trim();
   await saveLibraryName(libraryName);
+  const exportStructure = exportStructureEl.value || "current";
+  const symbolFileMode = symbolFileModeEl.value || "shared";
+  await saveExportStructure(exportStructure);
+  await saveSymbolFileMode(symbolFileMode);
 
   appendLog(`Import started for ${partIds.length} part(s)...`);
 
@@ -87,6 +97,10 @@ async function runImport(partIds) {
         symbol: optSymbolEl.checked,
         footprint: optFootprintEl.checked,
         model3d: opt3dEl.checked,
+      },
+      settings: {
+        exportStructure,
+        symbolFileMode,
       },
     },
   });
@@ -154,6 +168,21 @@ importCurrentBtn.addEventListener("click", async () => {
   if (libraryName) {
     libraryNameEl.value = libraryName;
   }
+
+  const exportStructure = await getExportStructure();
+  exportStructureEl.value = exportStructure;
+
+  const symbolFileMode = await getSymbolFileMode();
+  symbolFileModeEl.value = symbolFileMode;
+
+  exportStructureEl.addEventListener("change", async () => {
+    await saveExportStructure(exportStructureEl.value || "current");
+  });
+
+  symbolFileModeEl.addEventListener("change", async () => {
+    await saveSymbolFileMode(symbolFileModeEl.value || "shared");
+  });
+
   await refreshFolderStatus();
   appendLog("Ready.");
 })();
